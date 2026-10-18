@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gerador de B-roll</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f3f0e8;--panel:#fff;--ink:#1a1a1a;--mute:#6b6b6b;--line:#d9d4c7;--acc:#0d5c63;--accink:#fff;--warn:#b3261e}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14181a;--panel:#1d2326;--ink:#e9ecec;--mute:#93a0a3;--line:#2c3539;--acc:#3fb6a8;--accink:#06201d;--warn:#ff8a80}}
+:root[data-theme="dark"]{--bg:#14181a;--panel:#1d2326;--ink:#e9ecec;--mute:#93a0a3;--line:#2c3539;--acc:#3fb6a8;--accink:#06201d;--warn:#ff8a80}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Trebuchet MS",system-ui,sans-serif;line-height:1.45}
+main{max-width:1040px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:1.7rem;margin:0 0 4px;letter-spacing:-.01em}
+.sub{color:var(--mute);margin:0 0 20px;max-width:64ch}
+.grid{display:grid;grid-template-columns:1.1fr .9fr;gap:16px;align-items:start}
+@media(max-width:800px){.grid{grid-template-columns:1fr}}
+.sticky{position:sticky;top:12px}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:16px}
+.box h2{font-size:1rem;margin:0 0 8px}
+label{display:block;font-size:.85rem;color:var(--mute);margin:8px 0 3px}
+input,select,textarea,button{font:inherit;color:var(--ink)}
+input[type=text],input[type=password],input[type=number],select,textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px}
+textarea{resize:vertical;min-height:80px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.row>*{flex:1}
+button{cursor:pointer;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:8px 12px}
+button.p{background:var(--acc);color:var(--accink);border-color:var(--acc);font-weight:bold}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+button:disabled{opacity:.5;cursor:not-allowed}
+.scene{border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:10px}
+.scene .n{font-weight:bold;font-size:.85rem;color:var(--mute)}
+.scene .num{flex:none;width:80px}
+.scene .fx{flex:none}
+.msg{font-size:.82rem;color:var(--mute);margin:6px 0 0}
+.thumbs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+.thumbs img{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:6px;cursor:pointer;border:2px solid transparent}
+.thumbs img:hover{border-color:var(--acc)}
+.canvaswrap{background:#000;border-radius:8px;overflow:hidden}
+canvas{display:block;width:100%;height:auto;max-height:55vh;margin:0 auto}
+.stat{font-size:.9rem;color:var(--mute);margin-top:8px;min-height:1.3em}
+.warn{color:var(--warn);font-size:.85rem}
+video.out{width:100%;border-radius:8px;margin-top:10px;background:#000}
+a.dl{display:inline-block;margin-top:8px;padding:9px 14px;background:var(--acc);color:var(--accink);border-radius:6px;text-decoration:none;font-weight:bold}
+a{color:var(--acc)}
+.chk{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:.9rem}
+</style>
+</head>
+<body>
+<main>
+<h1>Gerador de B-roll</h1>
+<p class="sub">Escreva o roteiro, deixe o app buscar clipes reais num banco gratuito (Pixabay ou Pexels) para cada cena, escolha os que preferir e grave o vídeo final com sua música ou narração. Tudo roda no seu navegador, de graça e sem limite de duração.</p>
+
+<div class="grid">
+<section>
+  <div class="box">
+    <h2>1. Banco de vídeos e chave gratuita</h2>
+    <label for="prov">Banco</label>
+    <select id="prov"><option value="pixabay">Pixabay</option><option value="pexels">Pexels (cadastro de chaves pausado)</option></select>
+    <label for="key" id="keylbl"></label>
+    <input type="password" id="key" autocomplete="off" placeholder="Cole sua chave aqui">
+  </div>
+
+  <div class="box">
+    <h2>2. Roteiro</h2>
+    <label for="script">Uma cena por linha, no formato: <b>texto na tela | palavras de busca em inglês</b></label>
+    <textarea id="script" placeholder="Toque no mundo todo | live concert crowd&#10;Sem empresário | musician guitar stage&#10;Sua turnê começa aqui | airport travel suitcase"></textarea>
+    <div class="row" style="margin-top:8px">
+      <button id="mk" type="button">Criar cenas do roteiro</button>
+      <button id="all" type="button" class="p">Buscar clipes para todas</button>
+    </div>
+    <p class="msg" id="allmsg"></p>
+  </div>
+
+  <div class="box">
+    <h2>3. Cenas</h2>
+    <div id="list"></div>
+    <button id="add" type="button">Adicionar cena</button>
+  </div>
+</section>
+
+<section class="sticky">
+  <div class="box">
+    <h2>Formato e áudio</h2>
+    <div class="row">
+      <div><label for="size">Tamanho</label>
+        <select id="size">
+          <option value="1920x1080">1920×1080 (YouTube)</option>
+          <option value="1280x720">1280×720 (leve)</option>
+          <option value="1080x1920">1080×1920 (Reels, Shorts, TikTok)</option>
+          <option value="1080x1080">1080×1080 (feed)</option>
+        </select></div>
+      <div><label for="fps">Quadros por segundo</label>
+        <select id="fps"><option>30</option><option>24</option><option>60</option></select></div>
+    </div>
+    <label for="audio">Música ou narração (opcional)</label>
+    <input type="file" id="audio" accept="audio/*,video/*">
+    <label class="chk"><input type="checkbox" id="loop"> Repetir as cenas até o áudio terminar</label>
+  </div>
+  <div class="box">
+    <h2>Prévia e geração</h2>
+    <div class="canvaswrap"><canvas id="cv" width="1920" height="1080"></canvas></div>
+    <div class="row" style="margin-top:10px">
+      <button id="prev" type="button">Prévia</button>
+      <button id="gen" type="button" class="p">Gerar vídeo</button>
+      <button id="stop" type="button" disabled>Parar</button>
+    </div>
+    <div class="stat" id="stat">Pronto.</div>
+    <p class="warn">Mantenha esta aba aberta e visível durante a gravação. Ela acontece em tempo real.</p>
+    <div id="out"></div>
+  </div>
+</section>
+</div>
+</main>
+
+<script>
+const $=s=>document.querySelector(s);
+const cv=$('#cv'),ctx=cv.getContext('2d');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let scenes=[],audioEl=null,actx=null,adest=null,asrc=null;
+let running=false,timer=null,rec=null,chunks=[],recMime='',lock=null,startT=0,total=0,curIdx=-1;
+
+const prov=()=>$('#prov').value;
+function getKey(){try{return localStorage.getItem('key_'+prov())||''}catch(e){return''}}
+function syncKey(){
+  $('#key').value=getKey();
+  $('#keylbl').innerHTML=prov()==='pixabay'
+    ?'Crie uma conta grátis em <a href="https://pixabay.com/api/docs/" target="_blank" rel="noopener">pixabay.com/api/docs</a>. Com o login feito, a sua chave aparece nessa página. Fica salva só neste navegador.'
+    :'Chave de <a href="https://www.pexels.com/api/" target="_blank" rel="noopener">pexels.com/api</a>. Só funciona se você já tiver uma.';
+}
+$('#prov').onchange=()=>{try{localStorage.setItem('prov',prov())}catch(e){}syncKey()};
+try{const sv=localStorage.getItem('prov');if(sv)$('#prov').value=sv}catch(e){}
+syncKey();
+$('#key').onchange=()=>{try{localStorage.setItem('key_'+prov(),$('#key').value.trim())}catch(e){}};
+
+const mk=o=>Object.assign({vid:null,text:'',kw:'',dur:4,res:[],msg:''},o);
+function renderList(){
+  $('#list').innerHTML=scenes.map((s,i)=>`
+  <div class="scene" data-i="${i}">
+    <div class="n">Cena ${i+1}</div>
+    <label>Texto na tela (opcional)</label>
+    <input type="text" data-k="text" value="${esc(s.text)}">
+    <label>Palavras de busca (em inglês funciona melhor)</label>
+    <div class="row"><input type="text" data-k="kw" value="${esc(s.kw)}"><button type="button" class="fx" data-search="1">Buscar</button></div>
+    ${s.res.length?`<div class="thumbs">${s.res.map((r,j)=>`<img src="${esc(r.image)}" data-pick="${j}" alt="Opção ${j+1}" title="Escolher">`).join('')}</div>`:''}
+    <div class="row" style="margin-top:8px">
+      <input class="num" type="number" min="1" step="0.5" value="${s.dur}" data-k="dur" aria-label="Duração em segundos">
+      <span class="fx" style="color:var(--mute);font-size:.85rem">segundos</span>
+      <input type="file" accept="video/*" data-k="file" aria-label="Carregar clipe do computador" style="flex:2">
+      <button type="button" class="fx" data-rm="1">Remover</button>
+    </div>
+    <p class="msg">${esc(s.msg)}</p>
+  </div>`).join('');
+  draw(0);
+}
+$('#list').addEventListener('input',e=>{
+  const el=e.target.closest('.scene');if(!el)return;const s=scenes[+el.dataset.i],k=e.target.dataset.k;
+  if(k==='text'||k==='kw')s[k]=e.target.value;
+  if(k==='dur')s.dur=Math.max(1,parseFloat(e.target.value)||4);
+  if(k==='file'){const f=e.target.files[0];if(f)setClip(+el.dataset.i,URL.createObjectURL(f),'do computador')}
+  if(!running)draw(0);
+});
+$('#list').addEventListener('click',e=>{
+  const el=e.target.closest('.scene');if(!el)return;const i=+el.dataset.i;
+  if(e.target.dataset.rm){scenes.splice(i,1);if(!scenes.length)scenes.push(mk({}));renderList()}
+  if(e.target.dataset.search)search(i);
+  if(e.target.dataset.pick!==undefined)setClip(i,scenes[i].res[+e.target.dataset.pick].link,'banco');
+});
+$('#add').onclick=()=>{scenes.push(mk({}));renderList()};
+$('#mk').onclick=()=>{
+  const ls=$('#script').value.split('\n').map(l=>l.trim()).filter(Boolean);if(!ls.length)return;
+  scenes=ls.map(l=>{const [t,k]=l.split('|').map(x=>x.trim());return mk({text:t||'',kw:k||''})});renderList();
+};
+$('#size').onchange=()=>{const[w,h]=$('#size').value.split('x').map(Number);cv.width=w;cv.height=h;draw(0)};
+
+function pickFile(files){
+  const tw=cv.height>cv.width?720:1280;
+  const m=(files||[]).filter(f=>f.file_type==='video/mp4'&&f.width).sort((a,b)=>Math.abs(a.width-tw)-Math.abs(b.width-tw));
+  return m.length?m[0].link:'';
+}
+async function search(i){
+  const s=scenes[i],key=getKey();
+  if(!key){s.msg='Cole sua chave no passo 1.';renderList();return false}
+  if(!s.kw.trim()){s.msg='Escreva as palavras de busca.';renderList();return false}
+  s.msg='Buscando...';renderList();
+  const o=cv.height>cv.width?'portrait':(cv.width===cv.height?'square':'landscape');
+  try{
+    if(prov()==='pixabay'){
+      const tw=cv.height>cv.width?720:1280,por=cv.height>cv.width;
+      const r=await fetch('https://pixabay.com/api/videos/?per_page=20&safesearch=true&key='+encodeURIComponent(key)+'&q='+encodeURIComponent(s.kw));
+      if(!r.ok)throw new Error(r.status);
+      const j=await r.json();
+      let all=(j.hits||[]).map(h=>{
+        const f=Object.values(h.videos||{}).filter(x=>x&&x.url&&x.width).sort((a,b)=>Math.abs(a.width-tw)-Math.abs(b.width-tw))[0];
+        return f?{image:f.thumbnail||('https://i.vimeocdn.com/video/'+h.picture_id+'_295x166.jpg'),link:f.url,por:f.height>f.width}:null;
+      }).filter(Boolean);
+      const fit=all.filter(x=>x.por===por);
+      s.res=(fit.length?fit:all).slice(0,8);
+    }else{
+      const r=await fetch('https://api.pexels.com/videos/search?per_page=8&orientation='+o+'&query='+encodeURIComponent(s.kw),{headers:{Authorization:key}});
+      if(!r.ok)throw new Error(r.status);
+      const j=await r.json();
+      s.res=(j.videos||[]).map(v=>({image:v.image,link:pickFile(v.video_files)})).filter(v=>v.link);
+    }
+    s.msg=s.res.length?'Clique em um clipe para escolher.':'Nada encontrado. Tente outras palavras em inglês.';
+  }catch(e){s.msg='Erro na busca ('+e.message+'). Confira a chave e a conexão.'}
+  renderList();return s.res.length>0;
+}
+function setClip(i,src,label){
+  const s=scenes[i];s.msg='Carregando clipe...';renderList();
+  const v=document.createElement('video');
+  v.muted=true;v.loop=true;v.playsInline=true;v.preload='auto';
+  if(!src.startsWith('blob:'))v.crossOrigin='anonymous';
+  v.onloadeddata=()=>{s.vid=v;s.msg='Clipe pronto ('+label+').';renderList()};
+  v.onerror=()=>{s.msg='Este clipe não carregou (pode ser bloqueio do servidor). Escolha outro, ou baixe e use "Carregar do computador".';renderList()};
+  v.src=src;v.load();
+}
+$('#all').onclick=async()=>{
+  $('#all').disabled=true;
+  for(let i=0;i<scenes.length;i++){
+    $('#allmsg').textContent='Buscando cena '+(i+1)+' de '+scenes.length+'...';
+    if(await search(i))setClip(i,scenes[i].res[0].link,'banco');
+    await new Promise(r=>setTimeout(r,400));
+  }
+  $('#allmsg').textContent='Pronto. Troque os clipes que não gostar clicando em outra miniatura.';
+  $('#all').disabled=false;
+};
+
+$('#audio').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  if(audioEl)audioEl.pause();
+  audioEl=new Audio();audioEl.src=URL.createObjectURL(f);audioEl.preload='auto';
+  actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+  adest=adest||actx.createMediaStreamDestination();
+  asrc=actx.createMediaElementSource(audioEl);asrc.connect(adest);
+  audioEl.onloadedmetadata=()=>setStat('Áudio carregado: '+fmt(audioEl.duration));
+};
+const sumDur=()=>scenes.reduce((a,s)=>a+s.dur,0);
+function getTotal(){return($('#loop').checked&&audioEl&&isFinite(audioEl.duration))?audioEl.duration:sumDur()}
+function fmt(t){t=Math.floor(t);const h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=t%60;return(h?h+':':'')+String(m).padStart(h?2:1,'0')+':'+String(s).padStart(2,'0')}
+function setStat(t){$('#stat').textContent=t}
+
+function sceneAt(t){
+  const sum=sumDur()||1;let tt=t%sum,acc=0;
+  for(let i=0;i<scenes.length;i++){if(tt<acc+scenes[i].dur)return{i,local:tt-acc};acc+=scenes[i].dur}
+  const l=scenes.length-1;return{i:l,local:scenes[l].dur};
+}
+function wrap(text,maxW){
+  const lines=[];text.split('\n').forEach(par=>{let line='';par.split(' ').forEach(w=>{const t=line?line+' '+w:w;if(ctx.measureText(t).width>maxW&&line){lines.push(line);line=w}else line=t});lines.push(line)});return lines;
+}
+function draw(t){
+  const W=cv.width,H=cv.height;if(!scenes.length)return;
+  const{i,local}=sceneAt(t),s=scenes[i];
+  if(running&&i!==curIdx){
+    if(scenes[curIdx]&&scenes[curIdx].vid)scenes[curIdx].vid.pause();
+    curIdx=i;if(s.vid){s.vid.currentTime=0;s.vid.play().catch(()=>{})}
+  }
+  ctx.fillStyle='#0b1114';ctx.fillRect(0,0,W,H);
+  const v=s.vid;
+  if(v&&v.readyState>=2&&v.videoWidth){
+    const r=Math.max(W/v.videoWidth,H/v.videoHeight),w=v.videoWidth*r,h=v.videoHeight*r;
+    ctx.drawImage(v,(W-w)/2,(H-h)/2,w,h);
+  }
+  if(s.text.trim()){
+    const fs=Math.round(Math.min(W,H)*.055);ctx.font='bold '+fs+'px "Trebuchet MS",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    const lines=wrap(s.text,W*.8),lh=fs*1.25,bh=lines.length*lh+fs*.7,cy=H*.8;
+    ctx.fillStyle='rgba(0,0,0,.45)';ctx.fillRect(W*.06,cy-bh/2,W*.88,bh);
+    ctx.fillStyle='#fff';lines.forEach((l,k)=>ctx.fillText(l,W/2,cy-(lines.length-1)*lh/2+k*lh));
+  }
+  const a=Math.min(1,local/.4,(s.dur-local)/.4);
+  if(a<1){ctx.fillStyle='rgba(0,0,0,'+(1-Math.max(0,a))+')';ctx.fillRect(0,0,W,H)}
+}
+
+function pickMime(){return['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(m=>window.MediaRecorder&&MediaRecorder.isTypeSupported(m))||''}
+const stopVids=()=>scenes.forEach(s=>s.vid&&s.vid.pause());
+
+async function start(record){
+  if(running)return;
+  if(!scenes.some(s=>s.vid)){setStat('Escolha pelo menos um clipe antes.');return}
+  running=true;curIdx=-1;total=getTotal();$('#out').innerHTML='';
+  $('#prev').disabled=$('#gen').disabled=true;$('#stop').disabled=false;
+  try{lock=await navigator.wakeLock?.request('screen')}catch(e){}
+  if(record){
+    if(!window.MediaRecorder){setStat('Este navegador não suporta gravação. Use Chrome, Edge ou Firefox.');return end(true)}
+    const stream=cv.captureStream(+$('#fps').value);
+    if(audioEl&&adest)adest.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
+    recMime=pickMime();chunks=[];
+    rec=new MediaRecorder(stream,recMime?{mimeType:recMime,videoBitsPerSecond:8e6}:{videoBitsPerSecond:8e6});
+    rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
+    rec.onstop=finishRec;rec.start(1000);
+  }
+  if(audioEl){
+    if(actx.state==='suspended')await actx.resume();
+    try{asrc.disconnect(actx.destination)}catch(e){}
+    if(!record)asrc.connect(actx.destination);
+    audioEl.currentTime=0;audioEl.loop=$('#loop').checked&&total>audioEl.duration;audioEl.play().catch(()=>{});
+  }
+  startT=performance.now();
+  timer=setInterval(()=>{
+    const t=(performance.now()-startT)/1000;
+    if(t>=total){end(false);return}
+    draw(t);setStat((record?'Gravando ':'Prévia ')+fmt(t)+' / '+fmt(total));
+  },1000/Math.min(60,+$('#fps').value));
+}
+function end(abort){
+  clearInterval(timer);running=false;stopVids();if(audioEl)audioEl.pause();
+  if(lock){lock.release().catch(()=>{});lock=null}
+  $('#prev').disabled=$('#gen').disabled=false;$('#stop').disabled=true;
+  if(rec&&rec.state!=='inactive')rec.stop();else if(!abort)setStat('Prévia concluída.');
+}
+function finishRec(){
+  const ext=recMime.includes('mp4')?'mp4':'webm',blob=new Blob(chunks,{type:recMime||'video/webm'}),url=URL.createObjectURL(blob);
+  chunks=[];rec=null;setStat('Vídeo pronto ('+(blob.size/1048576).toFixed(1)+' MB).');
+  $('#out').innerHTML='<video class="out" controls src="'+url+'"></video><a class="dl" href="'+url+'" download="video-broll.'+ext+'">Baixar vídeo (.'+ext+')</a>';
+}
+$('#prev').onclick=()=>start(false);
+$('#gen').onclick=()=>start(true);
+$('#stop').onclick=()=>end(false);
+scenes=[mk({})];renderList();
+</script>
+</body>
+</html>
